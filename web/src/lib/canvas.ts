@@ -68,9 +68,22 @@ export function hexagonPath(ctx: CanvasRenderingContext2D, cx: number, cy: numbe
 }
 
 /**
+ * The one error correction level for every QR code NimFind draws. It is fixed here, and callers
+ * cannot override it, so a tag's code looks identical on the tag page, wallpapers and stickers.
+ * "Q" tolerates about a quarter of the code being damaged or covered by glare.
+ */
+export const QR_ERROR_CORRECTION = "Q";
+
+/** The module grid for a link: identical input always gives an identical pattern. */
+export function qrMatrix(text: string): { size: number; isDark: (row: number, col: number) => boolean } {
+  const qr = QRCode.create(text, { errorCorrectionLevel: QR_ERROR_CORRECTION });
+  const size = qr.modules.size;
+  return { size, isDark: (row, col) => qr.modules.data[row * size + col] === 1 };
+}
+
+/**
  * Draws a QR code with softened modules. Finder patterns stay solid and square-cornered enough
- * for fast detection. Only the modules are painted, so the code works in any colour on any
- * background that contrasts with it, including light modules on a dark wallpaper.
+ * for fast detection. Only the modules are painted, so the caller provides the light background.
  */
 export function drawQr(
   ctx: CanvasRenderingContext2D,
@@ -78,13 +91,13 @@ export function drawQr(
   x: number,
   y: number,
   size: number,
-  options: { color?: string; ecc?: "L" | "M" | "Q" | "H" } = {},
+  options: { color?: string } = {},
 ) {
   const color = options.color ?? COLORS.darkblue;
-  const qr = QRCode.create(text, { errorCorrectionLevel: options.ecc ?? "M" });
-  const count = qr.modules.size;
+  const matrix = qrMatrix(text);
+  const count = matrix.size;
   const cell = size / count;
-  const isDark = (row: number, col: number) => qr.modules.data[row * count + col] === 1;
+  const isDark = matrix.isDark;
   const inFinder = (row: number, col: number) =>
     (row < 7 && col < 7) || (row < 7 && col >= count - 7) || (row >= count - 7 && col < 7);
 

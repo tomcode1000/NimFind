@@ -42,7 +42,7 @@ watch(qrCanvas, (canvas) => {
   const ctx = canvas.getContext("2d")!;
   ctx.fillStyle = COLORS.white;
   ctx.fillRect(0, 0, size, size);
-  drawQr(ctx, tagUrl(code), 24, 24, size - 48, { ecc: "M" });
+  drawQr(ctx, tagUrl(code), 24, 24, size - 48);
 });
 
 async function update(changes: Partial<Pick<Tag, "status" | "rewardNim">>) {

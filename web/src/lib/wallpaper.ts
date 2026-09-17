@@ -310,7 +310,7 @@ export function renderWallpaper(target: HTMLCanvasElement, background: HTMLCanva
 
   if (input.calendar) drawCalendar(ctx, bx, by, m.blockW, input.date, ink, u);
 
-  drawQr(ctx, input.qrText, bx + m.platePad, qrY + m.platePad, m.qr, { color: "#161938", ecc: "Q" });
+  drawQr(ctx, input.qrText, bx + m.platePad, qrY + m.platePad, m.qr, { color: "#161938" });
 
   let ty = by + m.textTop;
   ctx.textBaseline = "top";

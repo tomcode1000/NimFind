@@ -42,7 +42,7 @@ export function renderStickerSheet(canvas: HTMLCanvasElement, input: StickerInpu
       const x = margin + col * (keySize + keyGap);
       const top = y + row * (keyH + 18);
       cutLine(ctx, x - 6, top - 6, keySize + 12, keyH + 12);
-      drawQr(ctx, input.qrText, x + 8, top + 8, keySize - 16, { ecc: "Q" });
+      drawQr(ctx, input.qrText, x + 8, top + 8, keySize - 16);
       ctx.fillStyle = COLORS.darkblue;
       ctx.font = `800 17px ${FONT}`;
       ctx.textAlign = "center";
@@ -61,7 +61,7 @@ export function renderStickerSheet(canvas: HTMLCanvasElement, input: StickerInpu
     const x = margin + col * (cardW + cardGap);
     cutLine(ctx, x, y, cardW, cardH);
     const qr = cardH - 60;
-    drawQr(ctx, input.qrText, x + 30, y + 30, qr, { ecc: "Q" });
+    drawQr(ctx, input.qrText, x + 30, y + 30, qr);
     const tx = x + 30 + qr + 26;
     const tw = cardW - (tx - x) - 26;
     let ty = y + 40;
@@ -112,7 +112,7 @@ export function renderStickerSheet(canvas: HTMLCanvasElement, input: StickerInpu
       const x = margin + col * (stickerSize + stickerGap);
       const top = y + row * (stickerH + 18);
       cutLine(ctx, x, top, stickerSize, stickerH, 24);
-      drawQr(ctx, input.qrText, x + 18, top + 18, stickerSize - 36, { ecc: "Q" });
+      drawQr(ctx, input.qrText, x + 18, top + 18, stickerSize - 36);
       ctx.fillStyle = COLORS.darkblue;
       ctx.font = `800 20px ${FONT}`;
       ctx.textAlign = "center";
