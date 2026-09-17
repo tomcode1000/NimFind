@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nimfind",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": true },
+  // The built Vue app. API routes run in the Worker; everything else is served as a single page app.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nimfind",
+      // Replace with the id printed by `npx wrangler d1 create nimfind` before deploying.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "PASS_PRICE_NIM": "1000",
+    // "mainnet" for the published app. Local development overrides this to "testnet" in .dev.vars.
+    "NIMIQ_NETWORK": "mainnet",
+    // Set to the Nimiq address that should receive Designer Pass payments.
+    "TREASURY_ADDRESS": "NQ52 0HJ3 0054 VHBM R9XE HTKF HFNV 2H8N BYK0",
+    "ALLOWED_ORIGINS": "http://localhost:5173"
+  }
+  // SESSION_SECRET is a secret: `npx wrangler secret put SESSION_SECRET`, and in .dev.vars locally.
+}

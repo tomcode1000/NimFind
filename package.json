@@ -1,0 +1,42 @@
+{
+  "name": "nimfind",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lost and found QR tags and lock screen wallpapers for Nimiq Pay, with finder rewards paid in NIM.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build": "vite build --config web/vite.config.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit && vue-tsc -p web/tsconfig.json --noEmit",
+    "icons": "node scripts/gen-icons.mjs",
+    "db:migrate:local": "wrangler d1 migrations apply nimfind --local",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "@fontsource-variable/mulish": "^5.3.0",
+    "@nimiq/hub-api": "^1.15.0",
+    "@nimiq/mini-app-sdk": "^0.1.0",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "hono": "^4.13.8",
+    "qrcode": "^1.5.4",
+    "vue": "^3.5.43",
+    "vue-router": "^5.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260916.1",
+    "@nimiq/core": "^2.21.0",
+    "@types/node": "^22.20.3",
+    "@types/qrcode": "^1.5.6",
+    "@vitejs/plugin-vue": "^6.0.9",
+    "nimiq-icons": "^1.0.0-beta.162",
+    "typescript": "~5.9",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1",
+    "vue-tsc": "^3.3.11",
+    "wrangler": "^4.132.0"
+  }
+}

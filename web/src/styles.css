@@ -1,0 +1,359 @@
+:root {
+  /* Nimiq brand palette */
+  --nq-darkblue: #1f2348;
+  --nq-darkblue-60: rgba(31, 35, 72, 0.6);
+  --nq-darkblue-40: rgba(31, 35, 72, 0.4);
+  --nq-darkblue-10: rgba(31, 35, 72, 0.08);
+  --nq-darkblue-5: rgba(31, 35, 72, 0.05);
+  --nq-blue: #0582ca;
+  --nq-light-blue: #0ca6fe;
+  --nq-gold: #e9b213;
+  --nq-orange: #ec991c;
+  --nq-green: #21bca5;
+  --nq-red: #d94432;
+  --nq-bg: #f4f4f6;
+  --nq-card: #ffffff;
+
+  --radius-card: 16px;
+  --radius-field: 12px;
+  --shadow-card: 0 1px 2px rgba(31, 35, 72, 0.04), 0 6px 20px rgba(31, 35, 72, 0.06);
+  --gradient-blue: radial-gradient(100% 100% at 100% 100%, #0582ca 0%, #0ca6fe 100%);
+  --gradient-gold: radial-gradient(100% 100% at 100% 100%, #ec991c 0%, #e9b213 100%);
+  --gradient-darkblue: radial-gradient(100% 100% at 100% 100%, #1f2348 0%, #260133 140%);
+
+  color-scheme: light;
+  font-family: "Mulish Variable", "Mulish", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--nq-darkblue);
+  background: var(--nq-bg);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--nq-bg);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--nq-blue);
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+.page {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.title {
+  font-size: 26px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.muted {
+  color: var(--nq-darkblue-60);
+}
+
+.small {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nq-darkblue-60);
+}
+
+.card {
+  background: var(--nq-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* Buttons follow Nimiq's pill style */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    opacity 120ms ease,
+    box-shadow 120ms ease;
+  text-align: center;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+}
+
+/* Disabled primary actions read as "not yet", not as a faded brand colour. */
+.btn-primary:disabled,
+.btn-gold:disabled {
+  opacity: 1;
+  color: var(--nq-darkblue-40);
+  background: rgba(31, 35, 72, 0.07);
+  box-shadow: none;
+}
+
+.btn-primary {
+  color: #fff;
+  background: var(--gradient-blue);
+  box-shadow: 0 4px 12px rgba(5, 130, 202, 0.25);
+}
+
+.btn-gold {
+  color: var(--nq-darkblue);
+  background: var(--gradient-gold);
+  box-shadow: 0 4px 12px rgba(233, 178, 19, 0.3);
+}
+
+.btn-dark {
+  color: #fff;
+  background: var(--gradient-darkblue);
+}
+
+.btn-secondary {
+  color: var(--nq-darkblue);
+  background: var(--nq-darkblue-5);
+}
+
+.btn-text {
+  min-height: 40px;
+  padding: 0 8px;
+  color: var(--nq-blue);
+  background: transparent;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--nq-darkblue-5);
+  color: var(--nq-darkblue);
+  cursor: pointer;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  border: 1.5px solid var(--nq-darkblue-10);
+  border-radius: var(--radius-field);
+  background: #fff;
+  padding: 13px 14px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 120ms ease;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.45;
+}
+
+.input:focus,
+.textarea:focus {
+  border-color: var(--nq-light-blue);
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--nq-darkblue-60);
+}
+
+.error-text {
+  font-size: 14px;
+  color: var(--nq-red);
+  font-weight: 600;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.pill-gold {
+  color: var(--nq-darkblue);
+  background: rgba(233, 178, 19, 0.2);
+}
+
+.pill-blue {
+  color: var(--nq-blue);
+  background: rgba(12, 166, 254, 0.12);
+}
+
+.pill-green {
+  color: #148a79;
+  background: rgba(33, 188, 165, 0.14);
+}
+
+.pill-red {
+  color: var(--nq-red);
+  background: rgba(217, 68, 50, 0.1);
+}
+
+.pill-neutral {
+  color: var(--nq-darkblue-60);
+  background: var(--nq-darkblue-5);
+}
+
+.kind-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--nq-darkblue-5);
+  color: var(--nq-darkblue);
+  flex-shrink: 0;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--nq-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  color: inherit;
+  width: 100%;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.center-state {
+  min-height: 60dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 14px;
+  padding: 24px;
+}
+
+.network-banner {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nq-darkblue);
+  background: var(--gradient-gold);
+  padding: 4px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2.5px solid var(--nq-darkblue-10);
+  border-top-color: var(--nq-light-blue);
+  animation: spin 800ms linear infinite;
+}
