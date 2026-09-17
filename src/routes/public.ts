@@ -9,8 +9,8 @@ import { randomCode, randomToken, readSessionToken, sha256Hex } from "../lib/sec
 import { MAX_MESSAGE_LENGTH, addMessage } from "./reports";
 
 // Phones on the same mobile network often share one address, so this stays generous.
-const REPORTS_PER_IP_PER_HOUR = 10;
-const REPORTS_PER_TAG_PER_DAY = 20;
+const REPORTS_PER_IP_PER_HOUR = 25;
+const REPORTS_PER_TAG_PER_DAY = 40;
 const HOUR_MS = 60 * 60 * 1000;
 const SCAN_WINDOW_MS = 10 * 60 * 1000;
 

@@ -229,7 +229,7 @@ describe("finding an item and paying the reward", () => {
   it("rate limits reports from one IP", async () => {
     const { call, code } = await setup();
     const headers = { "cf-connecting-ip": "9.9.9.9" };
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 25; i++) {
       expect((await call("POST", `/api/public/tags/${code}/reports`, { headers, body: { message: `Report ${i}` } })).status).toBe(201);
     }
     expect((await call("POST", `/api/public/tags/${code}/reports`, { headers, body: { message: "One more" } })).status).toBe(429);
