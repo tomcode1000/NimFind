@@ -9,6 +9,7 @@ import { pass } from "./routes/pass";
 import { publicRoutes } from "./routes/public";
 import { reports } from "./routes/reports";
 import { tags } from "./routes/tags";
+import { publicWallpapers, wallpaperLinks } from "./routes/wallpapers";
 
 const DEFAULT_RPC_URLS = {
   mainnet: ["https://rpc.nimiqwatch.com", "https://api.nimiqscan.com"],
@@ -54,7 +55,9 @@ export function createApp(options: AppOptions = {}) {
   app.route("/api/tags", tags);
   app.route("/api/reports", reports);
   app.route("/api/pass", pass);
+  app.route("/api/public/wallpapers", publicWallpapers);
   app.route("/api/public", publicRoutes);
+  app.route("/api/wallpaper-links", wallpaperLinks);
 
   app.notFound((c) => c.json({ error: { code: "not_found", message: "Not found." } }, 404));
 

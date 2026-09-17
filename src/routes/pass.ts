@@ -91,6 +91,13 @@ pass.post("/confirm", async (c) => {
   return c.json({ period, active: true, txHash: payment.hash });
 });
 
+/** Whether this wallet may use Designer Pass features right now. Always true while the pass is not offered. */
+export async function hasDesignerAccess(db: D1Database, env: AppEnv["Bindings"], address: string, now: number): Promise<boolean> {
+  if (!normalizeAddress(env.TREASURY_ADDRESS)) return true;
+  const row = await loadPass(db, address, currentPeriod(now));
+  return row?.status === "paid";
+}
+
 function currentPeriod(now: number): string {
   return new Date(now).toISOString().slice(0, 7);
 }

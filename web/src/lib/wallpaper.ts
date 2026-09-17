@@ -35,7 +35,7 @@ export interface OverlayInput {
   /** Top left corner of the block, as fractions of the screen. Clamped to stay on screen. */
   x: number;
   y: number;
-  /** "blend" keeps the code subtle; "strong" adds a deeper shade for low light and older scanners. */
+  /** "blend" puts the code on a soft frosted plate; "strong" on a solid white one. */
   contrast: "blend" | "strong";
   calendar: boolean;
   date: Date;
@@ -243,6 +243,9 @@ function blockMetrics(ctx: CanvasRenderingContext2D, W: number, input: OverlayIn
   const u = W / 100;
   const blockW = 52 * u;
   const qr = 27 * u;
+  // The light plate behind the code; its padding doubles as the scanner's quiet zone.
+  const platePad = 3.4 * u;
+  const plate = qr + platePad * 2;
   const calH = input.calendar ? 33 * u : 0;
   const calGap = input.calendar ? 4 * u : 0;
 
@@ -251,7 +254,7 @@ function blockMetrics(ctx: CanvasRenderingContext2D, W: number, input: OverlayIn
   ctx.font = `600 ${2.9 * u}px ${FONT}`;
   const messageLines = input.message.trim() ? wrapText(ctx, input.message.trim(), blockW, 2) : [];
 
-  const textTop = calH + calGap + qr + 3.4 * u;
+  const textTop = calH + calGap + plate + 3.4 * u;
   const headlineH = headlineLines.length * 5.2 * u;
   const messageH = messageLines.length ? 1.2 * u + messageLines.length * 3.9 * u : 0;
   const pillH = input.rewardNim > 0 ? 2.4 * u + 5.4 * u : 0;
@@ -259,6 +262,8 @@ function blockMetrics(ctx: CanvasRenderingContext2D, W: number, input: OverlayIn
     u,
     blockW,
     qr,
+    platePad,
+    plate,
     calH,
     calGap,
     headlineLines,
@@ -292,26 +297,20 @@ export function renderWallpaper(target: HTMLCanvasElement, background: HTMLCanva
   // A feathered shade: invisible as a shape, but it lifts contrast for the text.
   featheredRect(ctx, bx - 5 * u, by - 5 * u, m.blockW + 10 * u, m.height + 10 * u, 10 * u, `rgba(${shade}, ${dark ? 0.28 : 0.36})`);
 
-  let qrColor: string;
-  if (strong && dark) {
-    // High contrast on dark backgrounds: a dark code on a soft light glow, the polarity every scanner reads.
-    featheredRect(ctx, bx - 4 * u, qrY - 4 * u, m.qr + 8 * u, m.qr + 8 * u, 3 * u, "rgba(250, 250, 252, 0.97)");
-    featheredRect(ctx, bx - 3 * u, qrY - 3 * u, m.qr + 6 * u, m.qr + 6 * u, 1.5 * u, "rgba(250, 250, 252, 1)");
-    qrColor = "rgba(22, 25, 56, 1)";
-  } else {
-    // Deepen the shade behind the code only as much as this background needs: brighter or busier
-    // areas get more, calm areas stay nearly invisible.
-    const stats = regionStats(background, bx - 3 * u, qrY - 3 * u, m.qr + 6 * u, m.qr + 6 * u);
-    const needed = dark ? 1 - 0.2 / Math.max(stats.mean, 0.2) : (0.82 - stats.mean) / Math.max(1 - stats.mean, 0.01);
-    const base = strong ? 0.6 : dark ? 0.32 : 0.45;
-    const alpha = Math.min(Math.max(base, needed) + stats.deviation * 1.2, dark ? 0.88 : 0.94);
-    featheredRect(ctx, bx - 3 * u, qrY - 3 * u, m.qr + 6 * u, m.qr + 6 * u, 4 * u, `rgba(${shade}, ${alpha.toFixed(3)})`);
-    qrColor = `rgba(${ink}, ${strong ? 1 : 0.94})`;
-  }
+  // The code is always dark on light: tested on real phones, many scanners cannot read a light
+  // code on a dark background. "Blend in" uses a soft frosted plate, "High contrast" a solid one.
+  ctx.save();
+  ctx.shadowColor = "rgba(6, 8, 24, 0.22)";
+  ctx.shadowBlur = 3 * u;
+  ctx.shadowOffsetY = 0.6 * u;
+  ctx.fillStyle = strong ? "#ffffff" : dark ? "rgba(244, 245, 250, 0.93)" : "rgba(255, 255, 255, 0.9)";
+  roundedRect(ctx, bx, qrY, m.plate, m.plate, (strong ? 2.6 : 3.6) * u);
+  ctx.fill();
+  ctx.restore();
 
   if (input.calendar) drawCalendar(ctx, bx, by, m.blockW, input.date, ink, u);
 
-  drawQr(ctx, input.qrText, bx, qrY, m.qr, { color: qrColor, ecc: "Q" });
+  drawQr(ctx, input.qrText, bx + m.platePad, qrY + m.platePad, m.qr, { color: "#161938", ecc: "Q" });
 
   let ty = by + m.textTop;
   ctx.textBaseline = "top";

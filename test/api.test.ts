@@ -290,6 +290,59 @@ describe("scans", () => {
   });
 });
 
+describe("wallpaper links", () => {
+  const layout = { design: "midnight", x: 0.07, y: 0.37, contrast: "blend", calendar: false, message: "Scan me" };
+
+  it("signs a layout the owner can open in a normal browser, and rejects edits", async () => {
+    const { call, signIn } = createHarness();
+    const owner = await signIn();
+    const stranger = await signIn();
+    const code = (await call("POST", "/api/tags", { token: owner.token, body: { kind: "phone", label: "My phone", rewardNim: 100 } })).json.tag.code;
+
+    const link = await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...layout } });
+    expect(link.status).toBe(201);
+    const token = (link.json.path as string).replace("/w/", "");
+
+    const opened = await call("GET", `/api/public/wallpapers/${token}`);
+    expect(opened.json.wallpaper).toMatchObject({ code, design: "midnight", x: 0.07, y: 0.37, message: "Scan me" });
+    expect(opened.json.tag).toMatchObject({ label: "My phone", kind: "phone" });
+    expect(JSON.stringify(opened.json)).not.toContain(owner.address);
+
+    const [body, signature] = token.split(".");
+    const edited = Buffer.from(JSON.stringify({ ...opened.json.wallpaper, design: "aurora", exp: 9999999999 })).toString("base64url");
+    expect((await call("GET", `/api/public/wallpapers/${edited}.${signature}`)).status).toBe(404);
+    expect(body).toBeTruthy();
+
+    expect((await call("POST", "/api/wallpaper-links", { token: stranger.token, body: { code, ...layout } })).status).toBe(404);
+  });
+
+  it("requires an active Designer Pass for designer backgrounds and the calendar", async () => {
+    const treasury = newAddress();
+    const { call, chain, signIn } = createHarness({ TREASURY_ADDRESS: treasury });
+    const owner = await signIn();
+    const code = (await call("POST", "/api/tags", { token: owner.token, body: { kind: "keys", label: "Keys" } })).json.tag.code;
+
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...layout } })).status).toBe(201);
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...layout, design: "photo" } })).status).toBe(201);
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...layout, design: "aurora" } })).status).toBe(403);
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...layout, calendar: true } })).status).toBe(403);
+
+    const prepared = await call("POST", "/api/pass/prepare", { token: owner.token });
+    chain.pay({ from: owner.address, to: treasury, valueLuna: prepared.json.payment.valueLuna, data: prepared.json.payment.data });
+    await call("POST", "/api/pass/confirm", { token: owner.token });
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...layout, design: "aurora" } })).status).toBe(201);
+  });
+
+  it("expires after seven days", async () => {
+    const { call, signIn, clock } = createHarness();
+    const owner = await signIn();
+    const code = (await call("POST", "/api/tags", { token: owner.token, body: { kind: "bag", label: "Bag" } })).json.tag.code;
+    const token = (await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...layout } })).json.path.replace("/w/", "");
+    clock.now += 8 * 24 * 60 * 60 * 1000;
+    expect((await call("GET", `/api/public/wallpapers/${token}`)).status).toBe(404);
+  });
+});
+
 describe("designer pass", () => {
   it("is unavailable until a treasury address is configured", async () => {
     const { call, signIn } = createHarness();

@@ -55,6 +55,16 @@ export interface PaymentRequest {
   data: string;
 }
 
+export interface WallpaperLinkOptions {
+  design: string;
+  filter: string;
+  x: number;
+  y: number;
+  contrast: "blend" | "strong";
+  calendar: boolean;
+  message: string;
+}
+
 export interface AppConfig {
   network: "mainnet" | "testnet";
   passPriceNim: number;
@@ -138,6 +148,10 @@ export const api = {
     request<{ payment: PaymentRequest }>("POST", "/api/pass/prepare", { token }).then((r) => r.data.payment),
   confirmPass: (token: string) => request<{ active: boolean; pending?: boolean; txHash?: string }>("POST", "/api/pass/confirm", { token }),
 
+  createWallpaperLink: (token: string, body: WallpaperLinkOptions & { code: string }) =>
+    request<{ path: string }>("POST", "/api/wallpaper-links", { token, body }).then((r) => r.data.path),
+  publicWallpaper: (linkToken: string) =>
+    get<{ tag: PublicTag; wallpaper: WallpaperLinkOptions & { code: string } }>(`/api/public/wallpapers/${linkToken}`),
   recordScan: (code: string) => request("POST", `/api/public/tags/${code}/scan`),
 
   publicTag: (code: string) => get<{ tag: PublicTag }>(`/api/public/tags/${code}`).then((d) => d.tag),

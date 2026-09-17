@@ -8,6 +8,7 @@ export const router = createRouter({
     { path: "/", component: () => import("./views/Home.vue") },
     { path: "/t/:code", component: () => import("./views/FinderTag.vue") },
     { path: "/r/:id", component: () => import("./views/FinderReport.vue") },
+    { path: "/w/:token", component: () => import("./views/WallpaperExport.vue") },
     { path: "/app/tags/new", component: () => import("./views/TagNew.vue"), meta: { owner: true } },
     { path: "/app/tags/:code", component: () => import("./views/TagDetail.vue"), meta: { owner: true } },
     { path: "/app/tags/:code/wallpaper", component: () => import("./views/WallpaperStudio.vue"), meta: { owner: true } },

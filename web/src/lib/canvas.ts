@@ -170,16 +170,18 @@ export async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 }
 
 /**
- * Tries the share sheet first (the most reliable way to save to Photos on phones), then a
- * download link. Always returns an object URL so the image can also be shown for press and hold saving.
+ * iPhones save images to Photos through the share sheet ("Save Image"); Android and desktop
+ * browsers save straight to the gallery or downloads. Always returns an object URL so the image
+ * can also be shown for press and hold saving.
  */
 export async function saveImage(canvas: HTMLCanvasElement, filename: string): Promise<{ url: string; method: "share" | "download" | "manual" }> {
   const blob = await canvasToBlob(canvas);
   const url = URL.createObjectURL(blob);
   const file = new File([blob], filename, { type: "image/png" });
+  const isApple = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
   try {
-    if (navigator.canShare?.({ files: [file] })) {
+    if (isApple && navigator.canShare?.({ files: [file] })) {
       await navigator.share({ files: [file], title: filename });
       return { url, method: "share" };
     }

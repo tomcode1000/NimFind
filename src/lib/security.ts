@@ -50,6 +50,24 @@ export async function readSessionToken(token: string, secret: string, now = Date
   }
 }
 
+/** Signs a small JSON payload so it can travel in a URL and be trusted when it comes back. */
+export async function signPayload(payload: object, secret: string, ttlSeconds: number, now = Date.now()): Promise<string> {
+  const body = base64Url(encoder.encode(JSON.stringify({ ...payload, exp: Math.floor(now / 1000) + ttlSeconds })));
+  return `${body}.${await hmac(`payload:${secret}`, body)}`;
+}
+
+export async function readPayload<T>(token: string, secret: string, now = Date.now()): Promise<T | null> {
+  const [body, signature] = token.split(".");
+  if (!body || !signature) return null;
+  if (!constantTimeEqual(signature, await hmac(`payload:${secret}`, body))) return null;
+  try {
+    const payload = JSON.parse(new TextDecoder().decode(fromBase64Url(body))) as T & { exp: number };
+    return payload.exp * 1000 < now ? null : payload;
+  } catch {
+    return null;
+  }
+}
+
 async function hmac(secret: string, data: string): Promise<string> {
   const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, [
     "sign",

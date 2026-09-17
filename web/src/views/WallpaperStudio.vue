@@ -4,10 +4,11 @@ import { useRoute, useRouter } from "vue-router";
 import Icon from "../components/Icon.vue";
 import PageHeader from "../components/PageHeader.vue";
 import { api, type Tag } from "../lib/api";
-import { ensureFonts, saveImage } from "../lib/canvas";
+import { canvasToBlob, ensureFonts, saveImage } from "../lib/canvas";
 import { useAuthGuard } from "../lib/composables";
 import { errorMessage, tagUrl } from "../lib/format";
 import { KIND_HEADLINES } from "../lib/kinds";
+import { insideNimiqPay } from "../lib/nimiq-pay";
 import { loadConfig, session } from "../lib/session";
 import {
   DESIGNS,
@@ -151,15 +152,54 @@ function choosePhoto(event: Event) {
   image.src = URL.createObjectURL(file);
 }
 
+const inWallet = insideNimiqPay();
+const browserLink = ref<string | null>(null);
+const linkCopied = ref(false);
+
+/**
+ * Nimiq Pay's in app browser cannot save images, so there the owner gets a signed link to finish in
+ * their normal browser. Elsewhere the image is shared or downloaded directly.
+ */
 async function save() {
   if (!preview.value || locked.value) return;
   saving.value = true;
+  error.value = "";
   try {
-    saved.value = await saveImage(preview.value, `nimfind-${code}-wallpaper.png`);
+    if (inWallet) {
+      const path = await api.createWallpaperLink(session.token!, {
+        code,
+        design: source.value === "photo" && photo.value ? "photo" : design.value,
+        filter: filter.value,
+        x: options.x,
+        y: options.y,
+        contrast: options.contrast,
+        calendar: options.calendar,
+        message: options.message,
+      });
+      browserLink.value = `${location.origin}${path}`;
+    }
+    const canvas = preview.value;
+    saved.value = { url: URL.createObjectURL(await canvasToBlob(canvas)) };
+    if (!inWallet) await saveImage(canvas, `nimfind-${code}-wallpaper.png`);
   } catch (e) {
-    error.value = errorMessage(e);
+    if (!handleAuth(e)) error.value = errorMessage(e);
   } finally {
     saving.value = false;
+  }
+}
+
+function openInBrowser() {
+  if (browserLink.value) window.open(browserLink.value, "_blank");
+}
+
+async function copyBrowserLink() {
+  if (!browserLink.value) return;
+  try {
+    await navigator.clipboard.writeText(browserLink.value);
+    linkCopied.value = true;
+    setTimeout(() => (linkCopied.value = false), 2500);
+  } catch {
+    window.prompt("Copy this link and open it in Chrome or Safari", browserLink.value);
   }
 }
 
@@ -281,8 +321,8 @@ onMounted(async () => {
         <span class="hint">
           {{
             options.contrast === "blend"
-              ? "Subtle and matched to your background. Recent iPhone and Android cameras read it."
-              : "A dark code on a soft light glow. Every scanner reads it, including older phones."
+              ? "A soft frosted plate that sits quietly on your background and scans on any phone."
+              : "A solid white plate for the fastest scan, even in low light."
           }}
         </span>
       </div>
@@ -319,6 +359,18 @@ onMounted(async () => {
       <Icon name="arrow-to-bottom" :size="14" /> {{ saving ? "Preparing image" : "Save wallpaper" }}
     </button>
 
+    <section v-if="browserLink" class="card stack browser-save">
+      <strong class="row inline"><Icon name="arrow-top-right" :size="12" /> Finish saving in your browser</strong>
+      <p class="small muted">
+        Nimiq Pay cannot save images to your gallery. Open this link in Chrome or Safari on this phone, and it shows your
+        exact wallpaper with a Save button. The link works for 7 days.
+      </p>
+      <button class="btn btn-primary btn-block" type="button" @click="openInBrowser">Open in browser</button>
+      <button class="btn btn-secondary btn-block" type="button" @click="copyBrowserLink">
+        <Icon :name="linkCopied ? 'check' : 'copy'" :size="13" /> {{ linkCopied ? "Link copied, paste it in your browser" : "Copy link" }}
+      </button>
+    </section>
+
     <section v-if="saved" class="card stack">
       <strong>Set it as your lock screen</strong>
       <ol class="small instructions">
@@ -326,7 +378,7 @@ onMounted(async () => {
         <li><strong>Android:</strong> open the image in Photos or Gallery, tap the menu, choose Use as or Set as wallpaper, then pick Lock screen.</li>
         <li>Scan your lock screen once with another phone to check it works.</li>
       </ol>
-      <p class="hint">If the image did not save, press and hold it below and choose Save.</p>
+      <p class="hint">{{ inWallet ? "You can also try pressing and holding the image below." : "If the image did not save, press and hold it below and choose Save." }}</p>
       <img :src="saved.url" alt="Your NimFind wallpaper" class="saved-image" />
     </section>
   </main>
@@ -557,6 +609,12 @@ onMounted(async () => {
 
 .tight {
   gap: 2px;
+}
+
+.browser-save {
+  box-shadow:
+    inset 0 3px 0 var(--nq-light-blue),
+    var(--shadow-card);
 }
 
 .pass-callout {
