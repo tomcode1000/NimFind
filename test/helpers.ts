@@ -1,58 +1,38 @@
 import { Hash, KeyPair } from "@nimiq/core";
 import { readFileSync, readdirSync } from "node:fs";
-import { DatabaseSync } from "node:sqlite";
+import { createClient } from "@libsql/client";
 import { createApp } from "../src/app";
 import type { Env } from "../src/env";
 import type { Chain, ChainTransaction } from "../src/lib/chain";
+import { createLibsqlDatabase, type Database, type Statement } from "../src/lib/db";
+import { migrate } from "../src/lib/migrate";
 import { encodeSignedMessage, textToHex } from "../src/lib/nimiq";
 
-/** Minimal D1 implementation over node:sqlite, covering what the app uses. */
-export function createTestD1(): D1Database {
-  const sqlite = new DatabaseSync(":memory:");
-  const migrations = new URL("../migrations/", import.meta.url);
-  for (const file of readdirSync(migrations).filter((f) => f.endsWith(".sql")).sort()) {
-    sqlite.exec(readFileSync(new URL(file, migrations), "utf8"));
-  }
-
-  const prepare = (sql: string) => {
-    let params: unknown[] = [];
-    const statement = {
-      bind(...values: unknown[]) {
-        params = values.map((v) => (v === undefined ? null : v));
-        return statement;
-      },
-      async first(column?: string) {
-        const row = sqlite.prepare(sql).get(...(params as never[])) as Record<string, unknown> | undefined;
-        if (!row) return null;
-        return column ? row[column] : { ...row };
-      },
-      async all() {
-        const rows = sqlite.prepare(sql).all(...(params as never[])) as Record<string, unknown>[];
-        return { results: rows.map((r) => ({ ...r })), success: true, meta: {} };
-      },
-      async run() {
-        const result = sqlite.prepare(sql).run(...(params as never[]));
-        return { success: true, results: [], meta: { changes: Number(result.changes), last_row_id: Number(result.lastInsertRowid) } };
-      },
-    };
-    return statement;
-  };
-
+/**
+ * The production database adapter over an in-memory Turso (libSQL) database, with migrations
+ * applied. Statements wait for the migrations, so harness creation can stay synchronous.
+ */
+export function createTestDatabase(): Database {
+  const client = createClient({ url: ":memory:" });
+  const directory = new URL("../migrations/", import.meta.url);
+  const ready = migrate(
+    client,
+    readdirSync(directory)
+      .filter((f) => f.endsWith(".sql"))
+      .map((name) => ({ name, sql: readFileSync(new URL(name, directory), "utf8") })),
+  );
+  const db = createLibsqlDatabase(client);
+  const wrap = (statement: Statement): Statement => ({
+    bind: (...values) => wrap(statement.bind(...values)),
+    first: async <T,>() => (await ready, statement.first<T>()),
+    all: async <T,>() => (await ready, statement.all<T>()),
+    run: async () => (await ready, statement.run()),
+    toInStatement: () => statement.toInStatement(),
+  });
   return {
-    prepare,
-    async batch(statements: Array<{ run: () => Promise<unknown> }>) {
-      sqlite.exec("BEGIN");
-      try {
-        const results = [];
-        for (const statement of statements) results.push(await statement.run());
-        sqlite.exec("COMMIT");
-        return results;
-      } catch (error) {
-        sqlite.exec("ROLLBACK");
-        throw error;
-      }
-    },
-  } as unknown as D1Database;
+    prepare: (sql) => wrap(db.prepare(sql)),
+    batch: async (statements) => (await ready, db.batch(statements)),
+  };
 }
 
 export class FakeChain implements Chain {
@@ -91,7 +71,7 @@ export function createHarness(envOverrides: Partial<Env> = {}) {
   const chain = new FakeChain();
   const clock = { now: Date.UTC(2026, 8, 16, 12, 0, 0) };
   const env: Env = {
-    DB: createTestD1(),
+    DB: createTestDatabase(),
     SESSION_SECRET: "test-secret-that-is-long-enough-for-hmac-use",
     TREASURY_ADDRESS: "",
     PASS_PRICE_NIM: "1000",

@@ -1,3 +1,4 @@
+import type { Database } from "../lib/db";
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
 import { findPayment } from "../lib/chain";
@@ -120,7 +121,7 @@ reports.post("/:id/reward/confirm", async (c) => {
 });
 
 export async function addMessage(
-  db: D1Database,
+  db: Database,
   reportId: string,
   sender: MessageRow["sender"],
   body: string,
@@ -152,7 +153,7 @@ export async function fetchTransactions(chain: AppEnv["Variables"]["chain"], add
   }
 }
 
-async function loadOwnReport(db: D1Database, id: string, owner: string): Promise<OwnedReport> {
+async function loadOwnReport(db: Database, id: string, owner: string): Promise<OwnedReport> {
   const report = await db
     .prepare(
       `SELECT r.*, t.owner_address, t.label AS tag_label, t.kind AS tag_kind

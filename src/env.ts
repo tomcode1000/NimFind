@@ -1,7 +1,8 @@
 import type { Chain } from "./lib/chain";
+import type { Database } from "./lib/db";
 
 export interface Env {
-  DB: D1Database;
+  DB: Database;
   SESSION_SECRET: string;
   /** Nimiq address that receives Designer Pass payments. */
   TREASURY_ADDRESS: string;

@@ -1,3 +1,4 @@
+import type { Database } from "../lib/db";
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
 import { HttpError, oneOf, optionalText, readJson, requireText, rewardLuna } from "../lib/http";
@@ -98,7 +99,7 @@ tags.patch("/:code", async (c) => {
   return c.json({ tag: tagJson(updated) });
 });
 
-async function loadOwnTag(db: D1Database, code: string, owner: string): Promise<TagRow> {
+async function loadOwnTag(db: Database, code: string, owner: string): Promise<TagRow> {
   const tag = await db.prepare("SELECT * FROM tags WHERE code = ?").bind(code).first<TagRow>();
   // Same response for missing and foreign tags, so codes cannot be probed for ownership.
   if (!tag || tag.owner_address !== owner) throw new HttpError(404, "tag_not_found", "Tag not found.");

@@ -1,3 +1,4 @@
+import type { Database } from "../lib/db";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { AppEnv } from "../env";
@@ -137,7 +138,7 @@ publicRoutes.get("/stats", async (c) => {
   });
 });
 
-async function loadActiveTag(db: D1Database, code: string): Promise<TagRow> {
+async function loadActiveTag(db: Database, code: string): Promise<TagRow> {
   const tag = await db.prepare("SELECT * FROM tags WHERE code = ?").bind(code.toLowerCase()).first<TagRow>();
   if (!tag || tag.status === "archived") throw new HttpError(404, "tag_not_found", "This tag is not active.");
   return tag;
@@ -157,7 +158,10 @@ async function loadFinderReport(c: Context<AppEnv>) {
 }
 
 function hashIp(c: Context<AppEnv>): Promise<string> {
-  return sha256Hex(`${c.env.SESSION_SECRET}:${c.req.header("cf-connecting-ip") ?? "unknown"}`);
+  // Vercel sets x-real-ip and x-forwarded-for; the first forwarded address is the visitor.
+  const ip =
+    c.req.header("x-real-ip") ?? c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? c.req.header("cf-connecting-ip") ?? "unknown";
+  return sha256Hex(`${c.env.SESSION_SECRET}:${ip}`);
 }
 
 function parseOptionalAddress(value: unknown): string | null {

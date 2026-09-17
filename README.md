@@ -21,7 +21,7 @@ Built for the [Nimiq Mini Apps Competition](https://miniappscompetition.com) on 
 
 ## API backend
 
-A Cloudflare Worker with a D1 database, written in TypeScript with [Hono](https://hono.dev).
+Written in TypeScript with [Hono](https://hono.dev). It runs as a Vercel Edge Function with a [Turso](https://turso.tech) (libSQL) database, and as a plain Node server locally.
 
 | Area | Routes |
 |---|---|
@@ -30,43 +30,47 @@ A Cloudflare Worker with a D1 database, written in TypeScript with [Hono](https:
 | Owner inbox | `GET /api/reports`, `GET /api/reports/:id`, `POST /api/reports/:id/messages`, `POST /api/reports/:id/status`, `POST /api/reports/:id/reward/prepare`, `POST /api/reports/:id/reward/confirm` |
 | Finders (public) | `GET /api/public/tags/:code`, `POST /api/public/tags/:code/scan`, `POST /api/public/tags/:code/reports`, `GET /api/public/reports/:id`, `POST /api/public/reports/:id/messages`, `PUT /api/public/reports/:id/finder-address` |
 | Designer Pass | `GET /api/pass`, `POST /api/pass/prepare`, `POST /api/pass/confirm` |
+| Wallpaper links | `POST /api/wallpaper-links`, `GET /api/public/wallpapers/:token` |
 | Stats | `GET /api/public/stats` |
 
 Signature verification and address derivation are implemented with `@noble/curves` and `@noble/hashes`, and tested against the official `@nimiq/core` library.
 
 ## Front end
 
-A Vue 3 app in `web/`, served by the same Worker. It uses Nimiq's palette, the Mulish typeface, and icons from the MIT licensed [nimiq-icons](https://www.npmjs.com/package/nimiq-icons) set, plus a few drawn in the same style. Wallpapers and printable sheets are drawn on a canvas in the browser, so personal photos never leave the phone.
+A Vue 3 app in `web/`. It uses Nimiq's palette, the Mulish typeface, and icons from the MIT licensed [nimiq-icons](https://www.npmjs.com/package/nimiq-icons) set, plus a few drawn in the same style. Wallpapers and printable sheets are drawn on a canvas in the browser, so personal photos never leave the phone.
 
 ## Development
 
+Create a `.dev.vars` file in the project root:
+
+```
+SESSION_SECRET=<a long random string, for example the output of: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
+NIMIQ_NETWORK=testnet
+TREASURY_ADDRESS=<the Nimiq address that receives Designer Pass payments>
+```
+
+Then:
+
 ```bash
 npm install
-echo "SESSION_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")" > .dev.vars
-echo "NIMIQ_NETWORK=testnet" >> .dev.vars
-npm run db:migrate:local
-npm run build                                 # builds the Vue app into dist/
-npm run dev                                   # app and API on http://127.0.0.1:8787
-npm test                                      # unit and API tests
+npm run build        # builds the Vue app into dist/
+npm run dev          # app and API on http://127.0.0.1:8787, with a local database in .data/
+npm test             # unit and API tests
 npm run typecheck
-node scripts/smoke.mjs http://127.0.0.1:8787  # end to end API check against a running Worker
 ```
 
 ### Testing inside Nimiq Pay on a phone
 
 1. In Nimiq Pay, switch to testnet: open the app menu and long press the settings button for 10 seconds. Tap "Get free NIM".
-2. On the computer, run `npm run build` and then `npm run dev -- --ip 0.0.0.0`.
+2. On the computer, run `npm run build` and then `npm run dev -- --host`.
 3. With the phone on the same Wi-Fi, open Mini Apps in Nimiq Pay and enter `http://<computer's local IP>:8787` as the Custom URL.
 
-## Deploy
+## Deploy to Vercel
 
-```bash
-npx wrangler d1 create nimfind        # copy the database_id into wrangler.jsonc
-npx wrangler d1 migrations apply nimfind --remote
-npx wrangler secret put SESSION_SECRET
-# set TREASURY_ADDRESS in wrangler.jsonc to the address that receives Designer Pass payments
-npm run deploy
-```
+1. Import the GitHub repository in Vercel. The included `vercel.json` sets the build command.
+2. Add the Turso integration from the Vercel Marketplace to the project. It sets `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`.
+3. In Project Settings, Environment Variables, add `SESSION_SECRET` (a long random string) and `TREASURY_ADDRESS`. Leave `NIMIQ_NETWORK` unset for mainnet.
+4. Deploy. The build applies database migrations, then packages the app with the Vercel Build Output API.
 
 ## License
 
