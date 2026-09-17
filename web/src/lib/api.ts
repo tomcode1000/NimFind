@@ -152,7 +152,7 @@ export const api = {
     request<{ path: string }>("POST", "/api/wallpaper-links", { token, body }).then((r) => r.data.path),
   publicWallpaper: (linkToken: string) =>
     get<{ tag: PublicTag; wallpaper: WallpaperLinkOptions & { code: string } }>(`/api/public/wallpapers/${linkToken}`),
-  recordScan: (code: string) => request("POST", `/api/public/tags/${code}/scan`),
+  recordScan: (code: string, token?: string | null) => request("POST", `/api/public/tags/${code}/scan`, { token }),
 
   publicTag: (code: string) => get<{ tag: PublicTag }>(`/api/public/tags/${code}`).then((d) => d.tag),
   openReport: (code: string, body: { message: string; finderAddress?: string }) =>

@@ -110,7 +110,7 @@ onMounted(() => {
           <span class="trust-icon"><Icon name="qr" :size="17" /></span>
           <div>
             <h3>Codes that scan</h3>
-            <p>Every design is checked to read at camera distance, with a high contrast option for older phones.</p>
+            <p>Every design is tested with real phone scanners. The code always sits dark on a light plate, so any camera reads it.</p>
           </div>
         </div>
       </div>
@@ -131,7 +131,7 @@ onMounted(() => {
 
     <footer class="footer">
       <span class="brand small-brand"><LogoMark :size="22" /> NimFind</span>
-      <span>A Mini App for Nimiq Pay. Open source, MIT licensed.</span>
+      <span>A Mini App for Nimiq Pay. <a href="https://github.com/tomcode1000/NimFind" target="_blank" rel="noopener">Open source</a>, MIT licensed.</span>
     </footer>
   </div>
 </template>

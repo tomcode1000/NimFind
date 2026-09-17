@@ -68,7 +68,7 @@ onMounted(async () => {
       <h2 class="title">Make it yours</h2>
       <p class="muted">Designer wallpapers and a month calendar on your lock screen, so your tag looks good every day.</p>
       <ul class="perks">
-        <li><Icon name="check" :size="14" /> Hexfield, Gold hour and Paper designs</li>
+        <li><Icon name="check" :size="14" /> Seven designer backgrounds: Aurora, Ocean, Hexfield, Gold hour, Dunes, Blossom and Paper</li>
         <li><Icon name="check" :size="14" /> Month calendar layer, refreshed each month</li>
         <li><Icon name="check" :size="14" /> Supports an independent open source app</li>
       </ul>

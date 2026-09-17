@@ -44,6 +44,8 @@ export function findPayment(
       tx.executionResult !== false &&
       tx.confirmations > 0 &&
       normalizeAddress(tx.to) === to &&
+      // A payment to yourself is never a payment from someone else.
+      normalizeAddress(tx.from) !== to &&
       tx.value >= query.minValueLuna &&
       (accepted.has(tx.recipientData?.toLowerCase()) || accepted.has(tx.senderData?.toLowerCase())),
   );
@@ -56,16 +58,22 @@ function acceptedDataHex(data: string): Set<string> {
   return new Set([textHex, textToHex(textHex).toLowerCase()]);
 }
 
-/** JSON-RPC client that tries each public node in order until one answers. */
-export function createRpcChain(urls: string[], fetchImpl: typeof fetch = fetch): Chain {
+/**
+ * JSON-RPC client that tries each public node in order until one answers. Each node gets a
+ * few seconds, so a slow or unreachable node never leaves a finder waiting on a spinner.
+ */
+export function createRpcChain(urls: string[], fetchImpl: typeof fetch = fetch, timeoutMs = 4000): Chain {
   async function call<T>(method: string, params: unknown[]): Promise<T> {
     let lastError: unknown;
     for (const url of urls) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
         const response = await fetchImpl(url, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+          signal: controller.signal,
         });
         if (!response.ok) throw new Error(`RPC ${url} responded ${response.status}`);
         const body = (await response.json()) as { result?: { data: T }; error?: { message: string } };
@@ -74,6 +82,8 @@ export function createRpcChain(urls: string[], fetchImpl: typeof fetch = fetch):
         return body.result.data;
       } catch (error) {
         lastError = error;
+      } finally {
+        clearTimeout(timer);
       }
     }
     throw lastError instanceof Error ? lastError : new Error("No RPC node available");

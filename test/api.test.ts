@@ -167,7 +167,12 @@ describe("finding an item and paying the reward", () => {
 
     const prepared = await call("POST", `/api/reports/${reportId}/reward/prepare`, { token: owner.token });
     expect(prepared.status).toBe(200);
-    expect(prepared.json.payment).toEqual({ recipient: finderAddress, valueLuna: 50_000_000, data: `HW:R:${reportId}` });
+    expect(prepared.json.payment).toMatchObject({ recipient: finderAddress, valueLuna: 50_000_000 });
+    const tagData = prepared.json.payment.data as string;
+    // The payment tag is random and not derived from anything the finder can see.
+    expect(tagData).toMatch(/^NF:R:[a-z2-9]{20}$/);
+    expect(tagData).not.toContain(reportId);
+    expect(JSON.stringify((await call("GET", `/api/public/reports/${reportId}`, { headers: finderHeaders })).json)).not.toContain(tagData);
 
     // The destination is locked while payment is in progress.
     expect((await call("PUT", `/api/public/reports/${reportId}/finder-address`, { headers: finderHeaders, body: { address: newAddress() } })).status).toBe(409);
@@ -177,13 +182,15 @@ describe("finding an item and paying the reward", () => {
     expect(pending.status).toBe(202);
 
     // Payments that do not match exactly are ignored.
-    chain.pay({ from: owner.address, to: finderAddress, valueLuna: 10_000_000, data: `HW:R:${reportId}` });
-    chain.pay({ from: finderAddress, to: newAddress(), valueLuna: 50_000_000, data: `HW:R:${reportId}` });
-    chain.pay({ from: owner.address, to: finderAddress, valueLuna: 50_000_000, data: "HW:R:other" });
-    chain.pay({ from: owner.address, to: finderAddress, valueLuna: 50_000_000, data: `HW:R:${reportId}`, confirmations: 0 });
+    chain.pay({ from: owner.address, to: finderAddress, valueLuna: 10_000_000, data: tagData });
+    chain.pay({ from: finderAddress, to: newAddress(), valueLuna: 50_000_000, data: tagData });
+    chain.pay({ from: owner.address, to: finderAddress, valueLuna: 50_000_000, data: "NF:R:other" });
+    chain.pay({ from: owner.address, to: finderAddress, valueLuna: 50_000_000, data: tagData, confirmations: 0 });
+    // A finder paying themselves, even with the right tag, is not the owner paying.
+    chain.pay({ from: finderAddress, to: finderAddress, valueLuna: 50_000_000, data: tagData });
     expect((await call("POST", `/api/reports/${reportId}/reward/confirm`, { token: owner.token })).status).toBe(202);
 
-    const tx = chain.pay({ from: owner.address, to: finderAddress, valueLuna: 50_000_000, data: `HW:R:${reportId}` });
+    const tx = chain.pay({ from: owner.address, to: finderAddress, valueLuna: 50_000_000, data: tagData });
     const confirmed = await call("POST", `/api/reports/${reportId}/reward/confirm`, { token: owner.token });
     expect(confirmed.status).toBe(200);
     expect(confirmed.json.report).toMatchObject({ status: "returned", rewardStatus: "paid", rewardTxHash: tx.hash, rewardPaidNim: 500 });
@@ -222,7 +229,7 @@ describe("finding an item and paying the reward", () => {
   it("rate limits reports from one IP", async () => {
     const { call, code } = await setup();
     const headers = { "cf-connecting-ip": "9.9.9.9" };
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       expect((await call("POST", `/api/public/tags/${code}/reports`, { headers, body: { message: `Report ${i}` } })).status).toBe(201);
     }
     expect((await call("POST", `/api/public/tags/${code}/reports`, { headers, body: { message: "One more" } })).status).toBe(429);
@@ -266,6 +273,12 @@ describe("scans", () => {
     expect(list.json.tags[0].lastScanAt).toBe(clock.now);
     const detail = await call("GET", `/api/tags/${code}`, { token: owner.token });
     expect(detail.json.tag).toMatchObject({ scanCount: 2, lastScanAt: clock.now });
+  });
+
+  it("does not count the owner opening their own tag page", async () => {
+    const { call, code, owner } = await ownerWithTag();
+    expect((await call("POST", `/api/public/tags/${code}/scan`, { token: owner.token })).json).toEqual({ recorded: false });
+    expect((await call("GET", `/api/tags/${code}`, { token: owner.token })).json.tag.scanCount).toBe(0);
   });
 
   it("does not count link previews, because a plain GET records nothing", async () => {

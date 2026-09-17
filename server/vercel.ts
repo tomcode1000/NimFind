@@ -23,7 +23,10 @@ export default async function handler(request: Request): Promise<Response> {
   if (path !== null) {
     url.pathname = `/api/${path}`;
     url.searchParams.delete("__path");
-    request = new Request(url, request);
+    // Read the body first: rebuilding a request around a streamed body is not supported in every runtime.
+    // API bodies are small (at most 16 KB), so buffering is cheap.
+    const body = request.method === "GET" || request.method === "HEAD" ? undefined : await request.arrayBuffer();
+    request = new Request(url, { method: request.method, headers: request.headers, body });
   }
   return app.fetch(request, getEnv());
 }

@@ -76,7 +76,9 @@ reports.post("/:id/reward/prepare", async (c) => {
   const amount = body.amountNim === undefined ? report.reward_luna : rewardLuna(body.amountNim, "Amount");
   if (amount <= 0) throw new HttpError(400, "invalid_input", "Reward amount must be greater than 0 NIM.");
 
-  const data = report.reward_data ?? `HW:R:${report.id}`;
+  // A random tag the finder never sees. If it were derived from the report id (which is in the
+  // finder's chat link), a finder could pay themselves with it and make the reward look paid.
+  const data = report.reward_data ?? `NF:R:${randomCode(20)}`;
   await c.env.DB.prepare(
     "UPDATE reports SET reward_luna = ?, reward_data = ?, reward_status = 'awaiting_payment', updated_at = ? WHERE id = ?",
   )

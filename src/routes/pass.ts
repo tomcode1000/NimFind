@@ -50,7 +50,7 @@ pass.post("/prepare", async (c) => {
       buyer_address: c.var.address,
       period,
       price_luna: configuredPrice(c).luna,
-      payment_data: `HW:P:${id}`,
+      payment_data: `NF:P:${id}`,
       status: "pending",
       tx_hash: null,
       paid_at: null,

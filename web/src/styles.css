@@ -332,16 +332,6 @@ p {
   padding: 24px;
 }
 
-.network-banner {
-  text-align: center;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--nq-darkblue);
-  background: var(--gradient-gold);
-  padding: 4px;
-}
 
 @keyframes spin {
   to {

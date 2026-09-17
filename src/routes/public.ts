@@ -5,10 +5,11 @@ import type { AppEnv } from "../env";
 import { HttpError, readJson, requireText } from "../lib/http";
 import { lunaToNim, normalizeAddress } from "../lib/nimiq";
 import { messageJson, publicTagJson, reportJson, type MessageRow, type ReportRow, type TagRow } from "../lib/records";
-import { randomCode, randomToken, sha256Hex } from "../lib/security";
+import { randomCode, randomToken, readSessionToken, sha256Hex } from "../lib/security";
 import { MAX_MESSAGE_LENGTH, addMessage } from "./reports";
 
-const REPORTS_PER_IP_PER_HOUR = 5;
+// Phones on the same mobile network often share one address, so this stays generous.
+const REPORTS_PER_IP_PER_HOUR = 10;
 const REPORTS_PER_TAG_PER_DAY = 20;
 const HOUR_MS = 60 * 60 * 1000;
 const SCAN_WINDOW_MS = 10 * 60 * 1000;
@@ -37,8 +38,13 @@ publicRoutes.get("/tags/:code", async (c) => {
 publicRoutes.post("/tags/:code/scan", async (c) => {
   const tag = await loadActiveTag(c.env.DB, c.req.param("code"));
   const now = c.var.now;
-  const ipHash = await hashIp(c);
 
+  // The owner checking their own tag page is not a finder.
+  const header = c.req.header("authorization") ?? "";
+  const viewer = header.startsWith("Bearer ") ? await readSessionToken(header.slice(7), c.env.SESSION_SECRET, now) : null;
+  if (viewer === tag.owner_address) return c.json({ recorded: false });
+
+  const ipHash = await hashIp(c);
   const sameVisitor = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM scans WHERE tag_code = ? AND ip_hash = ? AND created_at > ?")
     .bind(tag.code, ipHash, now - SCAN_WINDOW_MS)
     .first<{ n: number }>();

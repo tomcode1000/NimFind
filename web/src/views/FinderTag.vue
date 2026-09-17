@@ -47,7 +47,7 @@ onMounted(async () => {
   try {
     tag.value = await api.publicTag(code);
     // Lets the owner know someone is looking at their tag right now.
-    void api.recordScan(code).catch(() => undefined);
+    void api.recordScan(code, session.token).catch(() => undefined);
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) notFound.value = true;
     else error.value = errorMessage(e);

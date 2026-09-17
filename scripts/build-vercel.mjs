@@ -50,6 +50,15 @@ writeFileSync(
     {
       version: 3,
       routes: [
+        {
+          src: "^/(.*)$",
+          headers: {
+            "x-content-type-options": "nosniff",
+            "referrer-policy": "strict-origin-when-cross-origin",
+            "permissions-policy": "geolocation=(), microphone=()",
+          },
+          continue: true,
+        },
         { src: "^/api/(.*)$", dest: "/api?__path=$1" },
         { src: "^/assets/(.*)$", headers: { "cache-control": "public, max-age=31536000, immutable" }, continue: true },
         { handle: "filesystem" },
