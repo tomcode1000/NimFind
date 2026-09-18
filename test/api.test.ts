@@ -401,9 +401,27 @@ describe("designer wallpapers", () => {
     // A different design is a new wallpaper, so it needs a new payment.
     expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...premium, design: "dunes" } })).status).toBe(402);
 
-    // So does the same design a day later.
+    // But the design paid for on this tag stays open, however long it has been.
     clock.now += 25 * 60 * 60 * 1000;
-    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...premium } })).status).toBe(402);
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...premium } })).status).toBe(201);
+  });
+
+  it("remembers the wallpaper so it comes back on the next sign in", async () => {
+    const { call, signIn } = createHarness({ TREASURY_ADDRESS: newAddress() });
+    const owner = await signIn();
+    const stranger = await signIn();
+    const code = (await call("POST", "/api/tags", { token: owner.token, body: { kind: "bag", label: "Bag" } })).json.tag.code;
+
+    expect((await call("GET", `/api/wallpaper-links/${code}`, { token: owner.token })).json.wallpaper).toBe(null);
+
+    const body = { code, ...premium, design: "mono", x: 0.22, y: 0.51, contrast: "strong", message: "Call me" };
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body })).status).toBe(201);
+
+    const saved = (await call("GET", `/api/wallpaper-links/${code}`, { token: owner.token })).json.wallpaper;
+    expect(saved).toMatchObject({ design: "mono", x: 0.22, y: 0.51, contrast: "strong", message: "Call me", paid: false });
+
+    // Only the owner sees it.
+    expect((await call("GET", `/api/wallpaper-links/${code}`, { token: stranger.token })).status).toBe(404);
   });
 
   it("charges for the calendar layer on a free design", async () => {

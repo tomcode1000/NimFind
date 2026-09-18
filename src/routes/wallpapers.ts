@@ -11,6 +11,18 @@ const FREE_DESIGNS = ["midnight", "mono"] as const;
 const DESIGNS = ["midnight", "mono", "aurora", "ocean", "hexfield", "goldhour", "dunes", "blossom", "paper", "photo"] as const;
 const FILTERS = ["original", "night", "gold", "soft"] as const;
 
+interface SavedWallpaperRow {
+  design: string;
+  filter: string;
+  x: number;
+  y: number;
+  contrast: string;
+  calendar: number;
+  message: string;
+  paid: number;
+  updated_at: number;
+}
+
 interface WallpaperLink {
   code: string;
   design: (typeof DESIGNS)[number];
@@ -50,13 +62,70 @@ wallpaperLinks.post("/", async (c) => {
   };
 
   const premium = link.calendar || (link.design !== "photo" && !(FREE_DESIGNS as readonly string[]).includes(link.design));
-  if (premium) {
+  // A design already paid for on this tag stays open: saving it again is free, forever.
+  const saved = await loadSaved(c.env.DB, link.code);
+  const alreadyPaid = saved?.paid === 1 && saved.design === link.design && Boolean(saved.calendar) === link.calendar;
+  if (premium && !alreadyPaid) {
     await spendWallpaperCredit(c.env.DB, c.env, c.var.address, { code: link.code, design: link.design }, c.var.now);
   }
 
+  await c.env.DB.prepare(
+    `INSERT INTO wallpapers (tag_code, owner_address, design, filter, x, y, contrast, calendar, message, paid, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(tag_code) DO UPDATE SET
+       design = excluded.design, filter = excluded.filter, x = excluded.x, y = excluded.y,
+       contrast = excluded.contrast, calendar = excluded.calendar, message = excluded.message,
+       paid = MAX(wallpapers.paid, excluded.paid), updated_at = excluded.updated_at`,
+  )
+    .bind(
+      link.code,
+      c.var.address,
+      link.design,
+      link.filter,
+      link.x,
+      link.y,
+      link.contrast,
+      link.calendar ? 1 : 0,
+      link.message,
+      premium || alreadyPaid ? 1 : 0,
+      c.var.now,
+      c.var.now,
+    )
+    .run();
+
   const token = await signPayload(link, c.env.SESSION_SECRET, LINK_TTL_SECONDS, c.var.now);
-  return c.json({ path: `/w/${token}` }, 201);
+  return c.json({ path: `/w/${token}`, saved: true }, 201);
 });
+
+/** The wallpaper this tag already has, so the studio opens where the owner left it. */
+wallpaperLinks.get("/:code", async (c) => {
+  const code = c.req.param("code");
+  const tag = await c.env.DB.prepare("SELECT owner_address FROM tags WHERE code = ? AND status != 'archived'")
+    .bind(code)
+    .first<{ owner_address: string }>();
+  if (!tag || tag.owner_address !== c.var.address) throw new HttpError(404, "tag_not_found", "Tag not found.");
+
+  const saved = await loadSaved(c.env.DB, code);
+  return c.json({
+    wallpaper: saved
+      ? {
+          design: saved.design,
+          filter: saved.filter,
+          x: saved.x,
+          y: saved.y,
+          contrast: saved.contrast,
+          calendar: Boolean(saved.calendar),
+          message: saved.message,
+          paid: Boolean(saved.paid),
+          savedAt: saved.updated_at,
+        }
+      : null,
+  });
+});
+
+function loadSaved(db: AppEnv["Bindings"]["DB"], code: string) {
+  return db.prepare("SELECT * FROM wallpapers WHERE tag_code = ?").bind(code).first<SavedWallpaperRow>();
+}
 
 export const publicWallpapers = new Hono<AppEnv>();
 

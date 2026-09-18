@@ -33,6 +33,9 @@ const credits = ref(0);
 const price = ref(100);
 const paymentsAvailable = ref(false);
 const paying = ref<"idle" | "wallet" | "confirming" | "timeout">("idle");
+/** The wallpaper already saved for this tag. A paid one never costs again. */
+const savedDesign = ref<{ design: string; calendar: boolean; paid: boolean } | null>(null);
+const reopened = ref(false);
 const error = ref("");
 
 const source = ref<"design" | "photo">("design");
@@ -67,7 +70,10 @@ const background = computed<WallpaperBackground | null>(() =>
 const premiumSelected = computed(
   () => options.calendar || (background.value?.kind === "design" && DESIGNS.find((d) => d.id === design.value)?.premium === true),
 );
-const locked = computed(() => premiumSelected.value && paymentsAvailable.value && credits.value < 1);
+const alreadyPaid = computed(
+  () => savedDesign.value?.paid === true && savedDesign.value.design === design.value && savedDesign.value.calendar === options.calendar,
+);
+const locked = computed(() => premiumSelected.value && paymentsAvailable.value && credits.value < 1 && !alreadyPaid.value);
 
 /* Rendering: the background is cached so dragging only redraws the overlay. */
 
@@ -179,7 +185,12 @@ async function save() {
         message: options.message,
       });
       browserLink.value = `${location.origin}${path}`;
-      if (premiumSelected.value && paymentsAvailable.value) credits.value = Math.max(credits.value - 1, 0);
+      if (premiumSelected.value && paymentsAvailable.value && !alreadyPaid.value) credits.value = Math.max(credits.value - 1, 0);
+      savedDesign.value = {
+        design: source.value === "photo" && photo.value ? "photo" : design.value,
+        calendar: options.calendar,
+        paid: premiumSelected.value || alreadyPaid.value,
+      };
     }
     const canvas = preview.value;
     saved.value = { url: URL.createObjectURL(await canvasToBlob(canvas)) };
@@ -245,6 +256,20 @@ onMounted(async () => {
     price.value = config.wallpaperPriceNim;
     paymentsAvailable.value = config.paymentsAvailable;
     if (config.paymentsAvailable) credits.value = (await api.wallpaperCredits(session.token!)).credits;
+
+    const previous = (await api.savedWallpaper(session.token!, code)).wallpaper;
+    if (previous) {
+      savedDesign.value = { design: previous.design, calendar: previous.calendar, paid: previous.paid };
+      // Photos live on the phone, so a photo wallpaper reopens on its design tab instead.
+      if (previous.design !== "photo") design.value = previous.design as DesignId;
+      filter.value = previous.filter as PhotoFilter;
+      options.x = previous.x;
+      options.y = previous.y;
+      options.contrast = previous.contrast;
+      options.calendar = previous.calendar;
+      options.message = previous.message;
+      reopened.value = true;
+    }
   } catch (e) {
     if (!handleAuth(e)) error.value = errorMessage(e);
   }
@@ -255,6 +280,10 @@ onMounted(async () => {
   <main class="page">
     <PageHeader title="Lock screen wallpaper" :back="`/app/tags/${code}`" />
     <p v-if="error" class="error-text">{{ error }}</p>
+
+    <p v-if="reopened" class="hint center">
+      <Icon name="check" :size="12" /> Your saved wallpaper, exactly as you left it.
+    </p>
 
     <section class="preview-wrap">
       <div class="phone" :style="{ aspectRatio: `${size.width} / ${size.height}` }">
@@ -405,7 +434,11 @@ onMounted(async () => {
       <p v-if="!inWallet" class="hint">Open NimFind inside Nimiq Pay to pay for a designer wallpaper.</p>
     </section>
 
-    <button v-else class="btn btn-primary btn-block" type="button" :disabled="saving || !tag" @click="save">
+    <p v-if="alreadyPaid" class="hint center">
+      <Icon name="check" :size="12" /> Already paid for on this tag. Saving it again is free.
+    </p>
+
+    <button v-if="!locked" class="btn btn-primary btn-block" type="button" :disabled="saving || !tag" @click="save">
       <Icon name="arrow-to-bottom" :size="14" /> {{ saving ? "Preparing image" : "Save wallpaper" }}
     </button>
 

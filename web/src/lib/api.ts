@@ -149,6 +149,8 @@ export const api = {
   confirmWallpaperPayment: (token: string) =>
     request<{ paid: boolean; pending?: boolean; credits: number; txHash?: string }>("POST", "/api/wallpaper-purchases/confirm", { token }),
 
+  savedWallpaper: (token: string, code: string) =>
+    get<{ wallpaper: (WallpaperLinkOptions & { paid: boolean; savedAt: number }) | null }>(`/api/wallpaper-links/${code}`, { token }),
   createWallpaperLink: (token: string, body: WallpaperLinkOptions & { code: string }) =>
     request<{ path: string }>("POST", "/api/wallpaper-links", { token, body }).then((r) => r.data.path),
   publicWallpaper: (linkToken: string) =>
