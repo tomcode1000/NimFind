@@ -5,10 +5,10 @@ import { createRpcChain, type Chain } from "./lib/chain";
 import { HttpError } from "./lib/http";
 import { normalizeAddress } from "./lib/nimiq";
 import { auth } from "./routes/auth";
-import { pass } from "./routes/pass";
 import { publicRoutes } from "./routes/public";
 import { reports } from "./routes/reports";
 import { tags } from "./routes/tags";
+import { priceNim, wallpaperPurchases } from "./routes/wallpaper-purchases";
 import { publicWallpapers, wallpaperLinks } from "./routes/wallpapers";
 
 const DEFAULT_RPC_URLS = {
@@ -44,17 +44,16 @@ export function createApp(options: AppOptions = {}) {
 
   app.get("/api/health", (c) => c.json({ ok: true }));
   app.get("/api/config", (c) => {
-    const price = Number(c.env.PASS_PRICE_NIM);
     return c.json({
       network: nimiqNetwork(c.env),
-      passPriceNim: Number.isFinite(price) && price > 0 ? price : 1000,
-      passAvailable: Boolean(normalizeAddress(c.env.TREASURY_ADDRESS)),
+      wallpaperPriceNim: priceNim(c.env),
+      paymentsAvailable: Boolean(normalizeAddress(c.env.TREASURY_ADDRESS)),
     });
   });
   app.route("/api/auth", auth);
   app.route("/api/tags", tags);
   app.route("/api/reports", reports);
-  app.route("/api/pass", pass);
+  app.route("/api/wallpaper-purchases", wallpaperPurchases);
   app.route("/api/public/wallpapers", publicWallpapers);
   app.route("/api/public", publicRoutes);
   app.route("/api/wallpaper-links", wallpaperLinks);

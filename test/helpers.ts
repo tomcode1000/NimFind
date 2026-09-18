@@ -74,7 +74,7 @@ export function createHarness(envOverrides: Partial<Env> = {}) {
     DB: createTestDatabase(),
     SESSION_SECRET: "test-secret-that-is-long-enough-for-hmac-use",
     TREASURY_ADDRESS: "",
-    PASS_PRICE_NIM: "1000",
+    WALLPAPER_PRICE_NIM: "100",
     RPC_URLS: "",
     ALLOWED_ORIGINS: "http://localhost:5173",
     ...envOverrides,

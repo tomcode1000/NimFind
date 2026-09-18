@@ -329,7 +329,7 @@ describe("wallpaper links", () => {
     expect((await call("POST", "/api/wallpaper-links", { token: stranger.token, body: { code, ...layout } })).status).toBe(404);
   });
 
-  it("requires an active Designer Pass for designer backgrounds and the calendar", async () => {
+  it("keeps the free designs free and charges for the designer ones", async () => {
     const treasury = newAddress();
     const { call, chain, signIn } = createHarness({ TREASURY_ADDRESS: treasury });
     const owner = await signIn();
@@ -337,12 +337,12 @@ describe("wallpaper links", () => {
 
     expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...layout } })).status).toBe(201);
     expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...layout, design: "photo" } })).status).toBe(201);
-    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...layout, design: "aurora" } })).status).toBe(403);
-    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...layout, calendar: true } })).status).toBe(403);
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...layout, design: "aurora" } })).status).toBe(402);
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...layout, calendar: true } })).status).toBe(402);
 
-    const prepared = await call("POST", "/api/pass/prepare", { token: owner.token });
+    const prepared = await call("POST", "/api/wallpaper-purchases/prepare", { token: owner.token });
     chain.pay({ from: owner.address, to: treasury, valueLuna: prepared.json.payment.valueLuna, data: prepared.json.payment.data });
-    await call("POST", "/api/pass/confirm", { token: owner.token });
+    await call("POST", "/api/wallpaper-purchases/confirm", { token: owner.token });
     expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...layout, design: "aurora" } })).status).toBe(201);
   });
 
@@ -356,38 +356,62 @@ describe("wallpaper links", () => {
   });
 });
 
-describe("designer pass", () => {
-  it("is unavailable until a treasury address is configured", async () => {
+describe("designer wallpapers", () => {
+  const premium = { design: "aurora", filter: "original", x: 0.1, y: 0.4, contrast: "blend", calendar: false, message: "Hi" };
+
+  it("are free while no treasury address is configured", async () => {
     const { call, signIn } = createHarness();
-    const { token } = await signIn();
-    expect((await call("POST", "/api/pass/prepare", { token })).status).toBe(503);
+    const owner = await signIn();
+    const code = (await call("POST", "/api/tags", { token: owner.token, body: { kind: "bag", label: "Bag" } })).json.tag.code;
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...premium } })).status).toBe(201);
+    expect((await call("POST", "/api/wallpaper-purchases/prepare", { token: owner.token })).status).toBe(503);
   });
 
-  it("activates after the matching NIM payment reaches the treasury", async () => {
+  it("cost one payment each, confirmed on chain", async () => {
     const treasury = newAddress();
-    const { call, chain, signIn, clock } = createHarness({ TREASURY_ADDRESS: treasury, PASS_PRICE_NIM: "1000" });
-    const buyer = await signIn();
+    const { call, chain, signIn, clock } = createHarness({ TREASURY_ADDRESS: treasury, WALLPAPER_PRICE_NIM: "100" });
+    const owner = await signIn();
+    const code = (await call("POST", "/api/tags", { token: owner.token, body: { kind: "phone", label: "Phone" } })).json.tag.code;
 
-    const before = await call("GET", "/api/pass", { token: buyer.token });
-    expect(before.json).toMatchObject({ period: "2026-09", priceNim: 1000, active: false });
+    // Unpaid, a designer design is refused while the free ones still work.
+    const refused = await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...premium } });
+    expect(refused.status).toBe(402);
+    expect(refused.json.error.code).toBe("payment_required");
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...premium, design: "midnight" } })).status).toBe(201);
 
-    const prepared = await call("POST", "/api/pass/prepare", { token: buyer.token });
-    expect(prepared.json.payment).toMatchObject({ recipient: treasury, valueLuna: 100_000_000 });
-    const again = await call("POST", "/api/pass/prepare", { token: buyer.token });
+    const before = await call("GET", "/api/wallpaper-purchases", { token: owner.token });
+    expect(before.json).toMatchObject({ priceNim: 100, available: true, credits: 0 });
+
+    const prepared = await call("POST", "/api/wallpaper-purchases/prepare", { token: owner.token });
+    expect(prepared.json.payment).toMatchObject({ recipient: treasury, valueLuna: 10_000_000 });
+    const again = await call("POST", "/api/wallpaper-purchases/prepare", { token: owner.token });
     expect(again.json.payment.data).toBe(prepared.json.payment.data);
 
-    expect((await call("POST", "/api/pass/confirm", { token: buyer.token })).status).toBe(202);
+    expect((await call("POST", "/api/wallpaper-purchases/confirm", { token: owner.token })).status).toBe(202);
 
-    chain.pay({ from: buyer.address, to: treasury, valueLuna: 100_000_000, data: prepared.json.payment.data });
-    const confirmed = await call("POST", "/api/pass/confirm", { token: buyer.token });
-    expect(confirmed.json).toMatchObject({ period: "2026-09", active: true });
+    chain.pay({ from: owner.address, to: treasury, valueLuna: 10_000_000, data: prepared.json.payment.data });
+    const confirmed = await call("POST", "/api/wallpaper-purchases/confirm", { token: owner.token });
+    expect(confirmed.json).toMatchObject({ paid: true, credits: 1 });
 
-    expect((await call("POST", "/api/pass/prepare", { token: buyer.token })).status).toBe(409);
+    // The credit is spent on the saved wallpaper, and the same one can be saved again for free.
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...premium } })).status).toBe(201);
+    expect((await call("GET", "/api/wallpaper-purchases", { token: owner.token })).json.credits).toBe(0);
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...premium } })).status).toBe(201);
 
-    // A new month needs a new pass.
-    clock.now = Date.UTC(2026, 9, 1, 0, 0, 1);
-    const nextMonth = await call("GET", "/api/pass", { token: buyer.token });
-    expect(nextMonth.json).toMatchObject({ period: "2026-10", active: false });
+    // A different design is a new wallpaper, so it needs a new payment.
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...premium, design: "dunes" } })).status).toBe(402);
+
+    // So does the same design a day later.
+    clock.now += 25 * 60 * 60 * 1000;
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body: { code, ...premium } })).status).toBe(402);
+  });
+
+  it("charges for the calendar layer on a free design", async () => {
+    const { call, signIn } = createHarness({ TREASURY_ADDRESS: newAddress() });
+    const owner = await signIn();
+    const code = (await call("POST", "/api/tags", { token: owner.token, body: { kind: "keys", label: "Keys" } })).json.tag.code;
+    const body = { code, ...premium, design: "midnight", calendar: true };
+    expect((await call("POST", "/api/wallpaper-links", { token: owner.token, body })).status).toBe(402);
   });
 });
 
@@ -402,9 +426,9 @@ describe("configuration", () => {
   });
 
   it("exposes public app configuration", async () => {
-    const { call } = createHarness({ NIMIQ_NETWORK: "testnet", TREASURY_ADDRESS: newAddress(), PASS_PRICE_NIM: "250" });
+    const { call } = createHarness({ NIMIQ_NETWORK: "testnet", TREASURY_ADDRESS: newAddress(), WALLPAPER_PRICE_NIM: "250" });
     const config = await call("GET", "/api/config");
-    expect(config.json).toEqual({ network: "testnet", passPriceNim: 250, passAvailable: true });
+    expect(config.json).toEqual({ network: "testnet", wallpaperPriceNim: 250, paymentsAvailable: true });
   });
 
   it("refuses to run without a strong session secret", async () => {

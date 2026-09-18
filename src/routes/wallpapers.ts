@@ -4,7 +4,7 @@ import { HttpError, oneOf, optionalText, readJson } from "../lib/http";
 import { publicTagJson, type TagRow } from "../lib/records";
 import { readPayload, signPayload } from "../lib/security";
 import { requireAuth } from "./auth";
-import { hasDesignerAccess } from "./pass";
+import { spendWallpaperCredit } from "./wallpaper-purchases";
 
 const LINK_TTL_SECONDS = 7 * 24 * 60 * 60;
 const FREE_DESIGNS = ["midnight", "mono"] as const;
@@ -25,7 +25,7 @@ interface WallpaperLink {
 /**
  * Wallpaper links let an owner finish saving a wallpaper in their phone's normal browser, where
  * downloads work, when the in-app browser cannot save images. The link carries only the layout,
- * signed so Designer Pass options cannot be unlocked by editing it. Photos are never included.
+ * signed so paid designs cannot be unlocked by editing it. Photos are never included.
  */
 export const wallpaperLinks = new Hono<AppEnv>();
 wallpaperLinks.use("*", requireAuth);
@@ -50,8 +50,8 @@ wallpaperLinks.post("/", async (c) => {
   };
 
   const premium = link.calendar || (link.design !== "photo" && !(FREE_DESIGNS as readonly string[]).includes(link.design));
-  if (premium && !(await hasDesignerAccess(c.env.DB, c.env, c.var.address, c.var.now))) {
-    throw new HttpError(403, "pass_required", "This design needs the Designer Pass.");
+  if (premium) {
+    await spendWallpaperCredit(c.env.DB, c.env, c.var.address, { code: link.code, design: link.design }, c.var.now);
   }
 
   const token = await signPayload(link, c.env.SESSION_SECRET, LINK_TTL_SECONDS, c.var.now);

@@ -4,9 +4,10 @@ import type { Database } from "./lib/db";
 export interface Env {
   DB: Database;
   SESSION_SECRET: string;
-  /** Nimiq address that receives Designer Pass payments. */
+  /** Nimiq address that receives wallpaper payments. Without it, designer wallpapers are free. */
   TREASURY_ADDRESS: string;
-  PASS_PRICE_NIM: string;
+  /** Price of one designer wallpaper in NIM. Defaults to 100. */
+  WALLPAPER_PRICE_NIM?: string;
   /** "mainnet" or "testnet". Selects default RPC nodes and is shown in the app. */
   NIMIQ_NETWORK?: string;
   /** Optional comma separated JSON-RPC endpoints, tried in order. Overrides the network defaults. */

@@ -12,7 +12,7 @@ Built for the [Nimiq Mini Apps Competition](https://miniappscompetition.com) on 
 - **Scans** are recorded when a finder opens the tag page, so the owner sees "Scanned just now" in the app, from their own phone or one they borrow.
 - **Trust:** the finder page shows whether the owner's wallet currently holds the promised reward, without revealing the address.
 - **Rewards** are paid by the owner directly to the finder from Nimiq Pay. Each payment carries a single-use tag in its data field, and the server confirms it on the Nimiq blockchain. NimFind never holds anyone's money.
-- **Designer Pass** unlocks designer wallpapers and the calendar layer for a month, paid in NIM and confirmed on chain the same way.
+- **Designer wallpapers** cost 100 NIM each, paid in Nimiq Pay and confirmed on chain the same way. Midnight, Mono and your own photos are free.
 
 ## Privacy
 
@@ -29,7 +29,7 @@ Written in TypeScript with [Hono](https://hono.dev). It runs as a Vercel Edge Fu
 | Owner tags | `GET/POST /api/tags`, `GET/PATCH /api/tags/:code` |
 | Owner inbox | `GET /api/reports`, `GET /api/reports/:id`, `POST /api/reports/:id/messages`, `POST /api/reports/:id/status`, `POST /api/reports/:id/reward/prepare`, `POST /api/reports/:id/reward/confirm` |
 | Finders (public) | `GET /api/public/tags/:code`, `POST /api/public/tags/:code/scan`, `POST /api/public/tags/:code/reports`, `GET /api/public/reports/:id`, `POST /api/public/reports/:id/messages`, `PUT /api/public/reports/:id/finder-address` |
-| Designer Pass | `GET /api/pass`, `POST /api/pass/prepare`, `POST /api/pass/confirm` |
+| Wallpaper payments | `GET /api/wallpaper-purchases`, `POST /api/wallpaper-purchases/prepare`, `POST /api/wallpaper-purchases/confirm` |
 | Wallpaper links | `POST /api/wallpaper-links`, `GET /api/public/wallpapers/:token` |
 | Stats | `GET /api/public/stats` |
 
@@ -46,7 +46,7 @@ Create a `.dev.vars` file in the project root:
 ```
 SESSION_SECRET=<a long random string, for example the output of: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
 NIMIQ_NETWORK=testnet
-TREASURY_ADDRESS=<the Nimiq address that receives Designer Pass payments>
+TREASURY_ADDRESS=<the Nimiq address that receives wallpaper payments>
 ```
 
 Then:

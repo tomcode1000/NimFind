@@ -7,7 +7,7 @@ export function envFromProcess(db: Database, vars: Record<string, string | undef
     DB: db,
     SESSION_SECRET: vars.SESSION_SECRET ?? "",
     TREASURY_ADDRESS: vars.TREASURY_ADDRESS ?? "",
-    PASS_PRICE_NIM: vars.PASS_PRICE_NIM ?? "1000",
+    WALLPAPER_PRICE_NIM: vars.WALLPAPER_PRICE_NIM ?? "100",
     NIMIQ_NETWORK: vars.NIMIQ_NETWORK,
     RPC_URLS: vars.RPC_URLS,
     ALLOWED_ORIGINS: vars.ALLOWED_ORIGINS,

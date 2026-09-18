@@ -98,7 +98,6 @@ onMounted(() => {
 
 
     <footer class="row footer">
-      <RouterLink to="/app/pass" class="btn btn-text"><Icon name="star" :size="14" /> Designer Pass</RouterLink>
       <span class="spacer" />
       <button class="btn btn-text muted" type="button" @click="signOut">Sign out</button>
     </footer>

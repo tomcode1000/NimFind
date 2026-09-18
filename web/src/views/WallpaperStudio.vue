@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 import Icon from "../components/Icon.vue";
 import PageHeader from "../components/PageHeader.vue";
 import { api, type Tag } from "../lib/api";
 import { canvasToBlob, ensureFonts, saveImage } from "../lib/canvas";
-import { useAuthGuard } from "../lib/composables";
+import { useAuthGuard, waitForConfirmation } from "../lib/composables";
 import { errorMessage, tagUrl } from "../lib/format";
 import { KIND_HEADLINES } from "../lib/kinds";
-import { insideNimiqPay } from "../lib/nimiq-pay";
+import { WalletError, insideNimiqPay, payWithData } from "../lib/nimiq-pay";
 import { loadConfig, session } from "../lib/session";
 import {
   DESIGNS,
@@ -23,14 +23,16 @@ import {
 } from "../lib/wallpaper";
 
 const route = useRoute();
-const router = useRouter();
 const handleAuth = useAuthGuard();
 const code = String(route.params.code);
 const size = wallpaperSize();
 
 const tag = ref<Tag | null>(null);
-const passActive = ref(false);
-const passAvailable = ref(false);
+/** Designer wallpapers are paid for one at a time. A credit is spent when the wallpaper is saved. */
+const credits = ref(0);
+const price = ref(100);
+const paymentsAvailable = ref(false);
+const paying = ref<"idle" | "wallet" | "confirming" | "timeout">("idle");
 const error = ref("");
 
 const source = ref<"design" | "photo">("design");
@@ -65,7 +67,7 @@ const background = computed<WallpaperBackground | null>(() =>
 const premiumSelected = computed(
   () => options.calendar || (background.value?.kind === "design" && DESIGNS.find((d) => d.id === design.value)?.premium === true),
 );
-const locked = computed(() => premiumSelected.value && !passActive.value);
+const locked = computed(() => premiumSelected.value && paymentsAvailable.value && credits.value < 1);
 
 /* Rendering: the background is cached so dragging only redraws the overlay. */
 
@@ -177,6 +179,7 @@ async function save() {
         message: options.message,
       });
       browserLink.value = `${location.origin}${path}`;
+      if (premiumSelected.value && paymentsAvailable.value) credits.value = Math.max(credits.value - 1, 0);
     }
     const canvas = preview.value;
     saved.value = { url: URL.createObjectURL(await canvasToBlob(canvas)) };
@@ -185,6 +188,36 @@ async function save() {
     if (!handleAuth(e)) error.value = errorMessage(e);
   } finally {
     saving.value = false;
+  }
+}
+
+async function checkPayment(): Promise<boolean> {
+  const result = await api.confirmWallpaperPayment(session.token!);
+  credits.value = result.data.credits;
+  return result.data.paid;
+}
+
+async function payForWallpaper() {
+  error.value = "";
+  try {
+    paying.value = "wallet";
+    await payWithData(await api.prepareWallpaperPayment(session.token!));
+    paying.value = "confirming";
+    paying.value = (await waitForConfirmation(checkPayment)) ? "idle" : "timeout";
+  } catch (e) {
+    paying.value = "idle";
+    if (e instanceof WalletError && e.kind === "cancelled") return;
+    if (!handleAuth(e)) error.value = errorMessage(e);
+  }
+}
+
+async function checkPaymentAgain() {
+  paying.value = "confirming";
+  try {
+    paying.value = (await waitForConfirmation(checkPayment, 5)) ? "idle" : "timeout";
+  } catch (e) {
+    paying.value = "timeout";
+    error.value = errorMessage(e);
   }
 }
 
@@ -209,8 +242,9 @@ onMounted(async () => {
   try {
     const [tagResult, config] = await Promise.all([api.tag(session.token!, code), loadConfig()]);
     tag.value = tagResult.tag;
-    passAvailable.value = config.passAvailable;
-    if (config.passAvailable) passActive.value = (await api.pass(session.token!)).active;
+    price.value = config.wallpaperPriceNim;
+    paymentsAvailable.value = config.paymentsAvailable;
+    if (config.paymentsAvailable) credits.value = (await api.wallpaperCredits(session.token!)).credits;
   } catch (e) {
     if (!handleAuth(e)) error.value = errorMessage(e);
   }
@@ -277,7 +311,7 @@ onMounted(async () => {
           @click="design = d.id"
         >
           <img v-if="designSwatches[d.id]" :src="designSwatches[d.id]" alt="" />
-          <Icon v-if="d.premium && !passActive" name="locked-lock" :size="11" class="lock" />
+          <Icon v-if="d.premium && paymentsAvailable && credits < 1" name="locked-lock" :size="11" class="lock" />
           <span class="swatch-name">{{ d.name }}</span>
         </button>
       </div>
@@ -338,26 +372,46 @@ onMounted(async () => {
           <span class="muted small">A small calendar above your code. Refresh it each month.</span>
         </span>
         <span class="spacer" />
-        <Icon v-if="!passActive" name="locked-lock" :size="12" class="muted" />
+        <Icon v-if="paymentsAvailable && credits < 1" name="locked-lock" :size="12" class="muted" />
         <input v-model="options.calendar" type="checkbox" />
       </label>
     </section>
 
-    <section v-if="locked" class="card stack pass-callout">
-      <strong class="row inline"><Icon name="star" :size="16" /> Designer Pass</strong>
+    <section v-if="locked" class="card stack pay-callout">
+      <div class="row">
+        <strong class="row inline"><Icon name="star" :size="16" /> Designer wallpaper</strong>
+        <span class="spacer" />
+        <span class="pill pill-gold">{{ price }} NIM</span>
+      </div>
       <p class="small muted">
-        {{
-          passAvailable
-            ? "This design and the calendar are part of the Designer Pass. Midnight, Mono and your own photos are always free."
-            : "Designer backgrounds are coming soon. Midnight, Mono and your own photos are free."
-        }}
+        One payment for this wallpaper, straight to NimFind from your wallet. Midnight, Mono and your own photos are
+        always free.
       </p>
-      <button v-if="passAvailable" class="btn btn-gold btn-block" type="button" @click="router.push('/app/pass')">Get the Designer Pass</button>
+      <button
+        v-if="paying === 'idle'"
+        class="btn btn-gold btn-block"
+        type="button"
+        :disabled="!inWallet"
+        @click="payForWallpaper"
+      >
+        Pay {{ price }} NIM in Nimiq Pay
+      </button>
+      <p v-else-if="paying === 'wallet'" class="small muted center">Confirm the payment in Nimiq Pay</p>
+      <p v-else-if="paying === 'confirming'" class="small muted center">Waiting for the Nimiq network</p>
+      <template v-else>
+        <p class="small muted">The payment is not visible on the network yet. This can take a minute.</p>
+        <button class="btn btn-secondary btn-block" type="button" @click="checkPaymentAgain">Check again</button>
+      </template>
+      <p v-if="!inWallet" class="hint">Open NimFind inside Nimiq Pay to pay for a designer wallpaper.</p>
     </section>
 
     <button v-else class="btn btn-primary btn-block" type="button" :disabled="saving || !tag" @click="save">
       <Icon name="arrow-to-bottom" :size="14" /> {{ saving ? "Preparing image" : "Save wallpaper" }}
     </button>
+
+    <p v-if="credits > 0 && !locked && premiumSelected" class="hint center">
+      <Icon name="check" :size="12" /> Paid. Saving this wallpaper uses it.
+    </p>
 
     <section v-if="browserLink" class="card stack browser-save">
       <strong class="row inline"><Icon name="arrow-top-right" :size="12" /> Finish saving in your browser</strong>
@@ -617,7 +671,7 @@ onMounted(async () => {
     var(--shadow-card);
 }
 
-.pass-callout {
+.pay-callout {
   background: linear-gradient(135deg, rgba(233, 178, 19, 0.14), rgba(236, 153, 28, 0.08)), #fff;
 }
 

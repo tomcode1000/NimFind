@@ -33,7 +33,7 @@ writeFileSync(
         "TURSO_AUTH_TOKEN",
         "SESSION_SECRET",
         "TREASURY_ADDRESS",
-        "PASS_PRICE_NIM",
+        "WALLPAPER_PRICE_NIM",
         "NIMIQ_NETWORK",
         "RPC_URLS",
         "ALLOWED_ORIGINS",

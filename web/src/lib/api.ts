@@ -67,8 +67,8 @@ export interface WallpaperLinkOptions {
 
 export interface AppConfig {
   network: "mainnet" | "testnet";
-  passPriceNim: number;
-  passAvailable: boolean;
+  wallpaperPriceNim: number;
+  paymentsAvailable: boolean;
 }
 
 export class ApiError extends Error {
@@ -143,10 +143,11 @@ export const api = {
   confirmReward: (token: string, id: string) =>
     request<{ report: Report; pending?: boolean }>("POST", `/api/reports/${id}/reward/confirm`, { token }),
 
-  pass: (token: string) => get<{ period: string; priceNim: number; active: boolean; txHash: string | null }>("/api/pass", { token }),
-  preparePass: (token: string) =>
-    request<{ payment: PaymentRequest }>("POST", "/api/pass/prepare", { token }).then((r) => r.data.payment),
-  confirmPass: (token: string) => request<{ active: boolean; pending?: boolean; txHash?: string }>("POST", "/api/pass/confirm", { token }),
+  wallpaperCredits: (token: string) => get<{ priceNim: number; available: boolean; credits: number }>("/api/wallpaper-purchases", { token }),
+  prepareWallpaperPayment: (token: string) =>
+    request<{ payment: PaymentRequest }>("POST", "/api/wallpaper-purchases/prepare", { token }).then((r) => r.data.payment),
+  confirmWallpaperPayment: (token: string) =>
+    request<{ paid: boolean; pending?: boolean; credits: number; txHash?: string }>("POST", "/api/wallpaper-purchases/confirm", { token }),
 
   createWallpaperLink: (token: string, body: WallpaperLinkOptions & { code: string }) =>
     request<{ path: string }>("POST", "/api/wallpaper-links", { token, body }).then((r) => r.data.path),
