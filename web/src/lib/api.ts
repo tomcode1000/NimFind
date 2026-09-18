@@ -87,11 +87,22 @@ interface RequestOptions {
   finderToken?: string;
 }
 
-async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<{ status: number; data: T }> {
+const REQUEST_TIMEOUT_MS = 20_000;
+const RETRY_DELAYS_MS = [600, 1800];
+/** Gateways answer with these while the app itself never ran, so the same request is safe to send again. */
+const RETRYABLE = new Set([0, 502, 503, 504]);
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function attempt<T>(method: string, path: string, options: RequestOptions): Promise<{ status: number; data: T }> {
   const headers: Record<string, string> = {};
   if (options.body !== undefined) headers["content-type"] = "application/json";
   if (options.token) headers.authorization = `Bearer ${options.token}`;
   if (options.finderToken) headers["x-finder-token"] = options.finderToken;
+
+  // A phone on a weak connection can leave a request hanging; give it a firm limit instead.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   let response: Response;
   try {
@@ -99,17 +110,37 @@ async function request<T>(method: string, path: string, options: RequestOptions 
       method,
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: controller.signal,
     });
   } catch {
-    throw new ApiError(0, "offline", "No connection. Check your internet and try again.");
+    throw new ApiError(0, "offline", "The connection dropped. Check your internet and try again.");
+  } finally {
+    clearTimeout(timer);
   }
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = (data as { error?: { code: string; message: string } }).error;
-    throw new ApiError(response.status, error?.code ?? "unknown", error?.message ?? "Something went wrong.");
+    const fallback = response.status >= 500 ? "The server did not answer. Please try again." : "Something went wrong.";
+    throw new ApiError(response.status, error?.code ?? "unknown", error?.message ?? fallback);
   }
   return { status: response.status, data: data as T };
+}
+
+/**
+ * Sends the request, and quietly sends it again when the network or a gateway drops it.
+ * Anything the server actually answered, including its errors, is passed straight through.
+ */
+async function request<T>(method: string, path: string, options: RequestOptions = {}): Promise<{ status: number; data: T }> {
+  for (let tries = 0; ; tries++) {
+    try {
+      return await attempt<T>(method, path, options);
+    } catch (error) {
+      const retryable = error instanceof ApiError && RETRYABLE.has(error.status);
+      if (!retryable || tries >= RETRY_DELAYS_MS.length) throw error;
+      await wait(RETRY_DELAYS_MS[tries]);
+    }
+  }
 }
 
 const get = <T>(path: string, options?: RequestOptions) => request<T>("GET", path, options).then((r) => r.data);
